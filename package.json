@@ -8,5 +8,8 @@
     "url": "https://github.com/lkptrzk/postpg"
   },
   "author": "lkptrzk",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "uuid": "^2.0.1"
+  }
 }

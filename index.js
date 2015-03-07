@@ -1,30 +1,78 @@
-exports.Client = function (options) {
+// postpg
 
-  this.Pg = options.Pg;
-  this.pgConfig = options.pgConfig;
+var Uuid = require('uuid');
+
+var NOOP = function () {};
+
+exports.Client = function (Pg, Bole, config) {
+
+  if (config == null) {
+    config = Bole;
+    Bole = null;
+  }
+
+  this.Pg = Pg;
+  this.config = config;
+
+  if (Bole == null) {
+    this.log = { debug: NOOP, info: NOOP, warn: NOOP, error: NOOP };
+  }
+  else {
+    this.log = Bole('postpg');
+  }
 };
 
 exports.Client.prototype.connect = function (callback) {
 
   // callback signature is (err, client, done)
-  this.Pg.connect(this.pgConfig, callback);
+  this.Pg.connect(this.config, callback);
 };
 
 exports.Client.prototype.getRaw = function (sql, params, callback) {
 
-  this.Pg.connect(this.pgConfig, function (err, client, done) {
+  var self = this;
+  var uuid = Uuid.v4();
+
+  self.log.debug({
+    uuid: uuid,
+    message: 'submitted',
+    sql: sql,
+    params: params,
+  });
+
+  this.connect(function (err, client, done) {
 
     if (err) {
+      self.log.debug({
+        uuid: uuid,
+        message: 'connection error',
+        err: err,
+      });
       return callback(err);
     }
+
+    self.log.debug({
+      uuid: uuid,
+      message: 'connection success',
+    });
 
     client.query(sql, params, function (err, raw) {
 
       done();
 
       if (err) {
+        self.log.debug({
+          uuid: uuid,
+          message: 'query error',
+          err: err,
+        });
         return callback(err);
       }
+
+      self.log.debug({
+        uuid: uuid,
+        message: 'query success',
+      });
 
       callback(null, raw);
     });
