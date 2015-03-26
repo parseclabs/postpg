@@ -25,15 +25,20 @@ and specifying the config for it
 ([see the docs for details](https://github.com/brianc/node-postgres/wiki/Client#new-clientobject-config--client)):
 
 ```js
-var pg = require('pg');
-var postpg = require('postpg');
+var Pg = require('pg');
+var Postpg = require('postpg');
 
-var client = new postpg.Client(pg, {
+var config = {
   user: 'brianc',
   password: 'boom!',
   database: 'test',
   host: 'example.com',
-  port: 5313
+  port: 5313,
+};
+
+var client = new Postpg.Client({
+  Pg: Pg,
+  config: config,
 });
 ```
 

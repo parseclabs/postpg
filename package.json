@@ -1,6 +1,6 @@
 {
   "name": "postpg",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "description": "minimal wrapper around `brianc/node-postgres`",
   "main": "index.js",
   "repository": {

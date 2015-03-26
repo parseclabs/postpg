@@ -4,21 +4,16 @@ var Uuid = require('uuid');
 
 var NOOP = function () {};
 
-exports.Client = function (Pg, Bole, config) {
+exports.Client = function (options) {
 
-  if (config == null) {
-    config = Bole;
-    Bole = null;
-  }
+  this.Pg = options.Pg;
+  this.config = options.config;
 
-  this.Pg = Pg;
-  this.config = config;
-
-  if (Bole == null) {
+  if (options.Bole == null) {
     this.log = { debug: NOOP, info: NOOP, warn: NOOP, error: NOOP };
   }
   else {
-    this.log = Bole('postpg');
+    this.log = options.Bole('postpg');
   }
 };
 
