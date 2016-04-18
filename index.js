@@ -1,127 +1,97 @@
-// postpg
+'use strict';
 
-var Uuid = require('uuid');
 
-var NOOP = function () {};
+const Events = require('events');
 
-exports.Client = function (options) {
 
-  this.Pg = options.Pg;
-  this.config = options.config;
+const Pg = require('pg');
 
-  if (options.Bole == null) {
-    this.log = { debug: NOOP, info: NOOP, warn: NOOP, error: NOOP };
+
+const Connection = require('./lib/connection');
+const Transaction = require('./lib/transaction');
+
+
+class Postpg extends Events.EventEmitter {
+
+  constructor(config) {
+
+    super();
+
+    const env = {
+      user:      process.env.PGUSER,
+      password:  process.env.PGPASSWORD,
+      database:  process.env.PGDATABASE,
+      host:      process.env.PGHOST,
+      port:      process.env.PGPORT,
+    };
+
+    this.config = Object.assign({}, env, config || {});
   }
-  else {
-    this.log = options.Bole('postpg');
+
+  _debug(data) {
+
+    return this.emit('debug', data);
   }
-};
 
-exports.Client.prototype.connect = function (callback) {
+  _connect(callback) {
 
-  // callback signature is (err, client, done)
-  this.Pg.connect(this.config, callback);
-};
+    const connection = new Connection();
+    connection.on('debug', (data) => this._debug(data));
+    return connection.connect(this.config, callback);
+  };
 
-exports.Client.prototype.getRaw = function (sql, params, callback) {
+  createTransaction() {
 
-  var self = this;
-  var uuid = Uuid.v4();
+    const transaction = new Transaction(this.config);
+    tranaction.on('debug', (data) => this._debug(data));
+    return transaction;
+  }
 
-  self.log.debug({
-    uuid: uuid,
-    message: 'submitted',
-    sql: sql,
-    params: params,
-  });
+  destroy() {
 
-  this.connect(function (err, client, done) {
+    return Pg.end();
+  }
 
-    if (err) {
-      self.log.debug({
-        uuid: uuid,
-        message: 'connection error',
-        err: err,
-      });
-      return callback(err);
-    }
+  find(sql, params, callback) {
 
-    self.log.debug({
-      uuid: uuid,
-      message: 'connection success',
-    });
-
-    client.query(sql, params, function (err, raw) {
-
-      done();
+    this.query(sql, params, (err, result) => {
 
       if (err) {
-        self.log.debug({
-          uuid: uuid,
-          message: 'query error',
-          err: err,
-        });
         return callback(err);
       }
 
-      self.log.debug({
-        uuid: uuid,
-        message: 'query success',
+      return callback(null, result.rows);
+    });
+  }
+
+  findOne(sql, params, callback) {
+
+    this.find(sql, params, (err, rows) => {
+
+      if (err) {
+        return callback(err);
+      }
+
+      return callback(null, rows[0]);
+    });
+  };
+
+  query(sql, params, callback) {
+
+    this._connect((err, connection) => {
+
+      if (err) {
+        return callback(err);
+      }
+
+      return connection.query(sql, params, (err, result) => {
+
+        connection.close();
+        return callback(err, result);
       });
-
-      callback(null, raw);
     });
-  });
+  }
 };
 
-exports.Client.prototype.getOne = function (sql, params, callback) {
 
-  this.getRaw(sql, params, function (err, raw) {
-
-    if (err) {
-      return callback(err);
-    }
-
-    callback(null, raw.rows[0]);
-  });
-};
-
-exports.Client.prototype.getRows = function (sql, params, callback) {
-
-  this.getRaw(sql, params, function (err, raw) {
-
-    if (err) {
-      return callback(err);
-    }
-
-    callback(null, raw.rows);
-  });
-};
-
-exports.Client.prototype.getFunctionResults = function (sql, params, callback) {
-
-  this.getRaw(sql, params, function (err, raw) {
-
-    if (err) {
-      return callback(err);
-    }
-
-    if (raw.rows.length < 1) {
-      return callback(null, []);
-    }
-
-    var key = Object.keys(raw.rows[0])[0];
-
-    var values = raw.rows.map(function (row) {
-
-      var value = row[key];
-
-      // trim off leading and closing parentheses
-      value = value.slice(1, value.length - 1);
-
-      return value.split(',');
-    });
-
-    callback(null, values);
-  });
-};
+module.exports = Postpg;
