@@ -43,7 +43,7 @@ class Postpg extends Events.EventEmitter {
   createTransaction() {
 
     const transaction = new Transaction(this.config);
-    tranaction.on('debug', (data) => this._debug(data));
+    transaction.on('debug', (data) => this._debug(data));
     return transaction;
   }
 
