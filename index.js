@@ -78,6 +78,14 @@ class Postpg extends Events.EventEmitter {
 
   query(sql, params, callback) {
 
+    if (callback == null) {
+      callback = params;
+      params = [];
+    }
+    else if (params == null) {
+      params = [];
+    }
+
     this._connect((err, connection) => {
 
       if (err) {
