@@ -11,6 +11,20 @@ const Connection = require('./lib/connection');
 const Transaction = require('./lib/transaction');
 
 
+const PARSE_ARGS = function (params, callback) {
+
+  if (callback == null) {
+    callback = params;
+    params = [];
+  }
+  else if (params == null) {
+    params = [];
+  }
+
+  return { params: params, callback: callback };
+};
+
+
 class Postpg extends Events.EventEmitter {
 
   constructor(config) {
@@ -54,48 +68,46 @@ class Postpg extends Events.EventEmitter {
 
   find(sql, params, callback) {
 
-    this.query(sql, params, (err, result) => {
+    const args = PARSE_ARGS(params, callback);
+
+    this.query(sql, args.params, (err, result) => {
 
       if (err) {
-        return callback(err);
+        return args.callback(err);
       }
 
-      return callback(null, result.rows);
+      return args.callback(null, result.rows);
     });
   }
 
   findOne(sql, params, callback) {
 
-    this.find(sql, params, (err, rows) => {
+    const args = PARSE_ARGS(params, callback);
+
+    this.find(sql, args.params, (err, rows) => {
 
       if (err) {
-        return callback(err);
+        return args.callback(err);
       }
 
-      return callback(null, rows[0]);
+      return args.callback(null, rows[0]);
     });
   };
 
   query(sql, params, callback) {
 
-    if (callback == null) {
-      callback = params;
-      params = [];
-    }
-    else if (params == null) {
-      params = [];
-    }
+    const args = PARSE_ARGS(params, callback);
 
     this._connect((err, connection) => {
 
       if (err) {
-        return callback(err);
+        return args.callback(err);
       }
 
-      return connection.query(sql, params, (err, result) => {
+      return connection.query(sql, args.params, (err, result) => {
 
         connection.close();
-        return callback(err, result);
+        return args.callback(err, result);
       });
     });
   }
