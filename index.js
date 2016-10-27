@@ -1,127 +1,117 @@
-// postpg
+'use strict';
 
-var Uuid = require('uuid');
 
-var NOOP = function () {};
+const Events = require('events');
 
-exports.Client = function (options) {
 
-  this.Pg = options.Pg;
-  this.config = options.config;
+const Pg = require('pg');
 
-  if (options.Bole == null) {
-    this.log = { debug: NOOP, info: NOOP, warn: NOOP, error: NOOP };
+
+const Connection = require('./lib/connection');
+const Transaction = require('./lib/transaction');
+
+
+const PARSE_ARGS = function (params, callback) {
+
+  if (callback == null) {
+    callback = params;
+    params = [];
   }
-  else {
-    this.log = options.Bole('postpg');
+  else if (params == null) {
+    params = [];
   }
+
+  return { params: params, callback: callback };
 };
 
-exports.Client.prototype.connect = function (callback) {
 
-  // callback signature is (err, client, done)
-  this.Pg.connect(this.config, callback);
-};
+class Postpg extends Events.EventEmitter {
 
-exports.Client.prototype.getRaw = function (sql, params, callback) {
+  constructor(config) {
 
-  var self = this;
-  var uuid = Uuid.v4();
+    super();
 
-  self.log.debug({
-    uuid: uuid,
-    message: 'submitted',
-    sql: sql,
-    params: params,
-  });
+    const env = {
+      user:      process.env.PGUSER,
+      password:  process.env.PGPASSWORD,
+      database:  process.env.PGDATABASE,
+      host:      process.env.PGHOST,
+      port:      process.env.PGPORT,
+    };
 
-  this.connect(function (err, client, done) {
+    this.config = Object.assign({}, env, config || {});
+  }
 
-    if (err) {
-      self.log.debug({
-        uuid: uuid,
-        message: 'connection error',
-        err: err,
-      });
-      return callback(err);
-    }
+  _debug(data) {
 
-    self.log.debug({
-      uuid: uuid,
-      message: 'connection success',
-    });
+    return this.emit('debug', data);
+  }
 
-    client.query(sql, params, function (err, raw) {
+  _connect(callback) {
 
-      done();
+    const connection = new Connection();
+    connection.on('debug', (data) => this._debug(data));
+    return connection.connect(this.config, callback);
+  };
+
+  createTransaction() {
+
+    const transaction = new Transaction(this.config);
+    transaction.on('debug', (data) => this._debug(data));
+    return transaction;
+  }
+
+  destroy() {
+
+    return Pg.end();
+  }
+
+  find(sql, params, callback) {
+
+    const args = PARSE_ARGS(params, callback);
+
+    this.query(sql, args.params, (err, result) => {
 
       if (err) {
-        self.log.debug({
-          uuid: uuid,
-          message: 'query error',
-          err: err,
-        });
-        return callback(err);
+        return args.callback(err);
       }
 
-      self.log.debug({
-        uuid: uuid,
-        message: 'query success',
+      return args.callback(null, result.rows);
+    });
+  }
+
+  findOne(sql, params, callback) {
+
+    const args = PARSE_ARGS(params, callback);
+
+    this.find(sql, args.params, (err, rows) => {
+
+      if (err) {
+        return args.callback(err);
+      }
+
+      return args.callback(null, rows[0]);
+    });
+  };
+
+  query(sql, params, callback) {
+
+    const args = PARSE_ARGS(params, callback);
+
+    this._connect((err, connection) => {
+
+      if (err) {
+        return args.callback(err);
+      }
+
+      return connection.query(sql, args.params, (err, result) => {
+
+        connection.close();
+        return args.callback(err, result);
       });
-
-      callback(null, raw);
     });
-  });
+  }
 };
 
-exports.Client.prototype.getOne = function (sql, params, callback) {
 
-  this.getRaw(sql, params, function (err, raw) {
-
-    if (err) {
-      return callback(err);
-    }
-
-    callback(null, raw.rows[0]);
-  });
-};
-
-exports.Client.prototype.getRows = function (sql, params, callback) {
-
-  this.getRaw(sql, params, function (err, raw) {
-
-    if (err) {
-      return callback(err);
-    }
-
-    callback(null, raw.rows);
-  });
-};
-
-exports.Client.prototype.getFunctionResults = function (sql, params, callback) {
-
-  this.getRaw(sql, params, function (err, raw) {
-
-    if (err) {
-      return callback(err);
-    }
-
-    if (raw.rows.length < 1) {
-      return callback(null, []);
-    }
-
-    var key = Object.keys(raw.rows[0])[0];
-
-    var values = raw.rows.map(function (row) {
-
-      var value = row[key];
-
-      // trim off leading and closing parentheses
-      value = value.slice(1, value.length - 1);
-
-      return value.split(',');
-    });
-
-    callback(null, values);
-  });
-};
+module.exports = Postpg;
