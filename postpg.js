@@ -1,28 +1,11 @@
 'use strict';
 
-
 const Events = require('events');
-
 
 const Pg = require('pg');
 
-
 const Connection = require('./lib/connection');
 const Transaction = require('./lib/transaction');
-
-
-const PARSE_ARGS = function (params, callback) {
-
-  if (callback == null) {
-    callback = params;
-    params = [];
-  }
-  else if (params == null) {
-    params = [];
-  }
-
-  return { params: params, callback: callback };
-};
 
 
 class Postpg extends Events.EventEmitter {
@@ -42,17 +25,30 @@ class Postpg extends Events.EventEmitter {
     this.config = Object.assign({}, env, config || {});
   }
 
-  _debug(data) {
-
-    return this.emit('debug', data);
-  }
-
   _connect(callback) {
 
     const connection = new Connection();
     connection.on('debug', (data) => this._debug(data));
     return connection.connect(this.config, callback);
-  };
+  }
+
+  _debug(data) {
+
+    return this.emit('debug', data);
+  }
+
+  _parseArgs(params, callback) {
+
+    if (callback == null) {
+      return { params: [], callback: params };
+    }
+    else if (params == null) {
+      return { params: [], callback: callback };
+    }
+    else {
+      return { params: params, callback: callback };
+    }
+  }
 
   createTransaction() {
 
@@ -68,7 +64,7 @@ class Postpg extends Events.EventEmitter {
 
   find(sql, params, callback) {
 
-    const args = PARSE_ARGS(params, callback);
+    const args = this._parseArgs(params, callback);
 
     this.query(sql, args.params, (err, result) => {
 
@@ -82,7 +78,7 @@ class Postpg extends Events.EventEmitter {
 
   findOne(sql, params, callback) {
 
-    const args = PARSE_ARGS(params, callback);
+    const args = this._parseArgs(params, callback);
 
     this.find(sql, args.params, (err, rows) => {
 
@@ -92,11 +88,11 @@ class Postpg extends Events.EventEmitter {
 
       return args.callback(null, rows[0]);
     });
-  };
+  }
 
   query(sql, params, callback) {
 
-    const args = PARSE_ARGS(params, callback);
+    const args = this._parseArgs(params, callback);
 
     this._connect((err, connection) => {
 
@@ -111,7 +107,7 @@ class Postpg extends Events.EventEmitter {
       });
     });
   }
-};
+}
 
 
 module.exports = Postpg;

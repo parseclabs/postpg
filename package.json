@@ -2,7 +2,7 @@
   "name": "postpg",
   "version": "3.0.0",
   "description": "minimal wrapper around `brianc/node-postgres`",
-  "main": "index.js",
+  "main": "postpg.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/lkptrzk/postpg"
@@ -10,8 +10,8 @@
   "author": "lkptrzk",
   "license": "MIT",
   "dependencies": {
-    "async": "^1.5.2",
-    "pg": "^4.5.3",
-    "uuid": "^2.0.2"
+    "async": "^2.1.4",
+    "pg": "^6.1.2",
+    "uuid": "^3.0.1"
   }
 }
